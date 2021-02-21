@@ -2,12 +2,15 @@
   <div id="home">
     <nav-bar class="home-nav"><div slot="center">购物街</div></nav-bar>
 
+    <!--  tabControl的假象控制  -->
+    <tab-control v-show="isShowFixed" class="tab-control" ref="tabControl1" :titles="['流行','新款','精选']"
+                 @tabClick="tabClick" />
     <!--  滚动区域  -->
     <scroll :probe-type="3" :pull-up-load="true" @pullingUp="loadMore" @scroll="backTop"  ref="scroll" class="content">
-      <home-swiper :banners="banners" />
+      <home-swiper @swiperImgLoad="swiperImgLoad" :banners="banners" />
       <recommend-view :recommends="recommends" />
       <feature-view></feature-view>
-      <tab-control class="tab-control" :titles="['流行','新款','精选']"
+      <tab-control ref="tabControl2" :titles="['流行','新款','精选']"
                    @tabClick="tabClick" />
       <goods-list :goods="showGoods" />
     </scroll>
@@ -31,6 +34,7 @@ import RecommendView from "./childComps/RecommendView";
 import FeatureView from "./childComps/FeatureView";
 
 import { getHomeMultidata, getHomeGoods } from "network/home";
+import {debounce} from 'common/debounce.js'
 
 
 
@@ -46,7 +50,10 @@ export default {
         "sell": {page: 0, list: []},
       },
       currentType: 'pop',
-      isShowBackTop: false
+      isShowBackTop: false,
+      tabControlOffsetTop : 0,
+      isShowFixed: false,
+      saveY: 0
     }
   },
   computed: {
@@ -64,6 +71,13 @@ export default {
     HomeSwiper,
     NavBar
   },
+  activated() {
+    this.$refs.scroll.scrollTo(0,this.saveY,0)
+    this.$refs.scroll.refresh()
+  },
+  deactivated() {
+    this.saveY = this.$refs.scroll.scrollY()
+  },
   created() {
     // 请求多个数据
     this.getHomeMultidata()
@@ -74,8 +88,21 @@ export default {
     this.getHomeGoods("new");
 
     this.getHomeGoods("sell");
+
+  },
+  mounted() {
+    // 监听图片加载事件  需要做一个防抖函数
+
+    const refresh = debounce(this.$refs.scroll.refresh, 500);
+
+    this.$bus.$on('itemImgLoad', () => {
+      refresh()
+    })
+
   },
   methods: {
+
+
 
     /**
      *  事件相关方法
@@ -95,6 +122,8 @@ export default {
           this.currentType = 'sell';
           break;
       }
+      this.$refs.tabControl1.currentIndex = index
+      this.$refs.tabControl2.currentIndex = index
     },
 
     // 返回顶部
@@ -104,8 +133,16 @@ export default {
 
     // 控制返回顶部图片显示隐藏
     backTop (position) {
-      // console.log(position);
+      // 判断backTop是否显示
       this.isShowBackTop = Math.abs(position.y) > 1000 ? true : false
+
+      // 判断tabControl是否fixed 固定/吸顶
+      this.isShowFixed = Math.abs(position.y) > this.tabControlOffsetTop ? true : false
+    },
+    // 轮播图加载完成后 计算tabControl的top值
+    swiperImgLoad () {
+        // 获取tabControl的offsetTop值
+        this.tabControlOffsetTop = this.$refs.tabControl2.$el.offsetTop
     },
 
     // 上拉加载更多
@@ -114,7 +151,8 @@ export default {
 
       this.$refs.scroll.finishPullUp()
 
-      // this.$refs.scroll.scroll.re
+
+      // this.$refs.scroll.scroll.refresh()
     },
 
 
@@ -148,34 +186,36 @@ export default {
 </script>
 
 <style scoped>
-#home{
-  padding-top: 44px;
+#home {
+  /*padding-top: 44px;*/
+  height: 100vh;
   position: relative;
 }
 
 .home-nav {
   background-color: var(--color-tint);
   color: #fff;
-  text-align: center;
 
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: 9;
-}
-.tab-control {
-  position: sticky;
-  top: 44px;
-  z-index: 99;
+  /*position: fixed;*/
+  /*left: 0;*/
+  /*right: 0;*/
+  /*top: 0;*/
+  /*z-index: 9;*/
 }
 
 .content {
-  /*overflow: hidden;*/
+  overflow: hidden;
+
   position: absolute;
   top: 44px;
   bottom: 49px;
   left: 0;
   right: 0;
 }
+
+.tab-control {
+  position: relative;
+  z-index: 99;
+}
+
 </style>
