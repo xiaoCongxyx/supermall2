@@ -15,8 +15,8 @@
       <goods-list :goods="showGoods" />
     </scroll>
 
-    <back-top @click.native="backClick()" v-show="isShowBackTop" />
-
+    <!--  回到顶部  -->
+    <back-top v-show="isShowBackTop" @click.native="backClick"/>
 
   </div>
 </template>
@@ -27,15 +27,13 @@ import NavBar from "components/common/navbar/NavBar";
 import TabControl from "components/context/tabControl/TabControl";
 import GoodsList from "components/context/goods/GoodsList";
 import Scroll from "components/common/scroll/Scroll";
-import BackTop from "components/context/backTop/BackTop";
 
 import HomeSwiper from "./childComps/HomeSwiper";
 import RecommendView from "./childComps/RecommendView";
 import FeatureView from "./childComps/FeatureView";
 
 import { getHomeMultidata, getHomeGoods } from "network/home";
-import {debounce} from 'common/debounce.js'
-
+import {itemImgListener, backTopMixin} from "common/mixin";
 
 
 export default {
@@ -50,19 +48,18 @@ export default {
         "sell": {page: 0, list: []},
       },
       currentType: 'pop',
-      isShowBackTop: false,
       tabControlOffsetTop : 0,
       isShowFixed: false,
       saveY: 0
     }
   },
+  mixins: [itemImgListener, backTopMixin],
   computed: {
     showGoods() {
       return this.goods[this.currentType].list
     }
   },
   components: {
-    BackTop,
     Scroll,
     GoodsList,
     TabControl,
@@ -77,6 +74,10 @@ export default {
   },
   deactivated() {
     this.saveY = this.$refs.scroll.scrollY()
+
+    // 在离开时取消事件
+    this.$bus.$off('itemImgLoad', this.itemImgListener)
+
   },
   created() {
     // 请求多个数据
@@ -90,19 +91,7 @@ export default {
     this.getHomeGoods("sell");
 
   },
-  mounted() {
-    // 监听图片加载事件  需要做一个防抖函数
-
-    const refresh = debounce(this.$refs.scroll.refresh, 500);
-
-    this.$bus.$on('itemImgLoad', () => {
-      refresh()
-    })
-
-  },
   methods: {
-
-
 
     /**
      *  事件相关方法
@@ -126,19 +115,15 @@ export default {
       this.$refs.tabControl2.currentIndex = index
     },
 
-    // 返回顶部
-    backClick () {
-      this.$refs.scroll.scrollTo(0, 0, 500)
-    },
-
     // 控制返回顶部图片显示隐藏
     backTop (position) {
       // 判断backTop是否显示
-      this.isShowBackTop = Math.abs(position.y) > 1000 ? true : false
+      this.listenerBackTop(position)
 
       // 判断tabControl是否fixed 固定/吸顶
       this.isShowFixed = Math.abs(position.y) > this.tabControlOffsetTop ? true : false
     },
+
     // 轮播图加载完成后 计算tabControl的top值
     swiperImgLoad () {
         // 获取tabControl的offsetTop值
